@@ -53,6 +53,7 @@ namespace CurvedCreaseFolding
             //hinges.saba
             for (int i = 0; i < mesh.TopologyEdges.Count; i++)
             {
+                var points = mesh.TopologyVertices.Select(p => new Point3d(p.X, p.Y, p.Z)).ToArray();
                 var faceIndices = mesh.TopologyEdges.GetConnectedFaces(i);
                 if (faceIndices.Length == 2)
                 {
@@ -60,20 +61,30 @@ namespace CurvedCreaseFolding
                     Point3f[] v2 = new Point3f[4];
                     mesh.Faces.GetFaceVertices(faceIndices[0], out v1[0], out v1[1], out v1[2], out v1[3]);
                     mesh.Faces.GetFaceVertices(faceIndices[1], out v2[0], out v2[1], out v2[2], out v2[3]);
-
+                    var edgeVertices = mesh.TopologyEdges.GetTopologyVertices(i);
+                    Point3f a = new Point3f();
+                    Point3f b = new Point3f();
+                    for (int j = 0; j < 4; j++)
+                    {
+                        if (!v1[j].Equals(edgeVertices.I) && !v1[j].Equals(edgeVertices.J))
+                            a = v1[j];
+                        if (!v2[j].Equals(edgeVertices.I) && !v2[j].Equals(edgeVertices.J))
+                            b = v2[j];
+                    }
+                    goals.Add(new Hinge(points[edgeVertices.I], points[edgeVertices.J], a, b, Math.PI / 3, 1.0));
                 }
             }
-            
-            Hinge hinge = new Hinge();
+
+
 
             // unary 
-            Vector3d forceVector = Vector3d.ZAxis * force;
+            //Vector3d forceVector = Vector3d.ZAxis * force;
 
-            for (int i = 0; i < mesh.TopologyVertices.Count; i++)
-            {
-                var unary = new Unary(i, forceVector);
-                goals.Add(unary);
-            }
+            //for (int i = 0; i < mesh.TopologyVertices.Count; i++)
+            //{
+            //    var unary = new Unary(i, forceVector);
+            //    goals.Add(unary);
+            //}
 
             // simulation
             int counter = 0;

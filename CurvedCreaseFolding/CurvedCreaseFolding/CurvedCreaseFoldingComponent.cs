@@ -21,7 +21,7 @@ namespace CurvedCreaseFolding
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddMeshParameter("Mesh", "M", "Initial mesh to create", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Force", "F", "This is a force.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Degree", "D", "Degree of folding", GH_ParamAccess.item);
             //pManager[0].Optional = true; to change parameter properties
         }
 
@@ -37,14 +37,14 @@ namespace CurvedCreaseFolding
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             Mesh mesh = null;
-            double force = 0;
+            double degree = 0;
 
             DA.GetData(0, ref mesh);
-            DA.GetData(1, ref force);
+            DA.GetData(1, ref degree);
             //if (!DA.GetData(0, ref mesh)) return;
             //if (!DA.GetData(1, ref force)) return;
 
-            var simulation = new FoldingSimulation(mesh, force);
+            var simulation = new FoldingSimulation(mesh, degree);
             Mesh outMesh = simulation.OutMesh;
             DA.SetData(0, outMesh);
         }

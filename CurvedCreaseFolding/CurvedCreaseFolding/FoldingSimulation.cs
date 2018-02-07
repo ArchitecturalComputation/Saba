@@ -75,6 +75,22 @@ namespace CurvedCreaseFolding
                 }
             }
 
+            // hinges.vicente
+            // assumes a triangulated mesh.
+            for (int i = 0; i < mesh.TopologyEdges.Count; i++)
+            {
+                int[] faces = mesh.TopologyEdges.GetConnectedFaces(i, out bool[] direction);
+                if (faces.Length != 2) continue;
+
+                if (!direction[0]) faces.Reverse();
+                var faceVertices = faces.Select(f => mesh.TopologyVertices.IndicesFromFace(f));
+                var edgeVertices = mesh.TopologyEdges.GetTopologyVertices(i);
+                var opposites = faceVertices.Select(f => f.First(v => !edgeVertices.Contains(v))).ToArray();
+
+                var hinge = new Hinge(edgeVertices.I, edgeVertices.J, opposites.First(), opposites.Last(), Math.PI / 3.0, 1.0);
+                goals.Add(hinge);
+            }
+
 
 
             // unary 

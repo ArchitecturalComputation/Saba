@@ -21,32 +21,37 @@ namespace CurvedCreaseFolding
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddMeshParameter("Mesh", "M", "Initial mesh to create", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Force", "F", "This is a force.", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Degree", "D", "Degree of folding", GH_ParamAccess.item);
+            pManager.AddCurveParameter("Fold Curves", "FC", "Lines to be folded", GH_ParamAccess.list);
             //pManager[0].Optional = true; to change parameter properties
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddMeshParameter("Mesh", "M", "Final mesh that is unfoldable", GH_ParamAccess.item);
-
-            // Sometimes you want to hide a specific parameter from the Rhino preview.
-            // You can use the HideParameter() method as a quick way:
+            pManager.AddMeshParameter("Mesh", "M", "Final mesh that is flattenable", GH_ParamAccess.item);
+            pManager.AddLineParameter("Edge Lines", "E", "Edges being folded", GH_ParamAccess.item);
             //pManager.HideParameter(0);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             Mesh mesh = null;
-            double force = 0;
+            double degree = 0;
+            var folds = new List<Curve>();
 
             DA.GetData(0, ref mesh);
-            DA.GetData(1, ref force);
+            DA.GetData(1, ref degree);
+            /*DA.GetDataList(2, folds)*/;
             //if (!DA.GetData(0, ref mesh)) return;
             //if (!DA.GetData(1, ref force)) return;
+            if (!DA.GetDataList(2, folds)) return;
 
-            var simulation = new FoldingSimulation(mesh, force);
+            var simulation = new FoldingSimulation(mesh, degree, folds);
             Mesh outMesh = simulation.OutMesh;
             DA.SetData(0, outMesh);
+
+            List<Line> foldings = simulation.foldings;
+            DA.SetDataList(1, foldings);
         }
     }
 }

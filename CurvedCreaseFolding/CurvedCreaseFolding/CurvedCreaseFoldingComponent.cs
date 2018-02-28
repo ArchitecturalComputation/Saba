@@ -30,6 +30,7 @@ namespace CurvedCreaseFolding
         {
             pManager.AddMeshParameter("Mesh", "M", "Final mesh that is flattenable", GH_ParamAccess.item);
             pManager.AddLineParameter("Edge Lines", "E", "Edges being folded", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Angle Differences", "AD", "Differences in angle in each vetex", GH_ParamAccess.item);
             //pManager.HideParameter(0);
         }
 
@@ -41,17 +42,21 @@ namespace CurvedCreaseFolding
 
             DA.GetData(0, ref mesh);
             DA.GetData(1, ref degree);
-            /*DA.GetDataList(2, folds)*/;
+            //DA.GetDataList(2, folds);
             //if (!DA.GetData(0, ref mesh)) return;
             //if (!DA.GetData(1, ref force)) return;
             if (!DA.GetDataList(2, folds)) return;
 
             var simulation = new FoldingSimulation(mesh, degree, folds);
+
             Mesh outMesh = simulation.OutMesh;
             DA.SetData(0, outMesh);
 
-            List<Line> foldings = simulation.foldings;
+            List<Line> foldings = simulation.Foldings;
             DA.SetDataList(1, foldings);
+
+            List<Double> angleDifferences = simulation.AngleDifferences;
+            DA.SetDataList(2, angleDifferences);
         }
     }
 }

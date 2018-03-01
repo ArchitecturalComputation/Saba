@@ -5,7 +5,6 @@ using Rhino.Collections;
 using KangarooSolver;
 using KangarooSolver.Goals;
 using System.Collections.Generic;
-//using System.Diagnostics;
 
 namespace CurvedCreaseFolding
 {
@@ -13,13 +12,11 @@ namespace CurvedCreaseFolding
     {
         public Mesh OutMesh { get; private set; }
         public List<Line> Foldings { get; private set; }
-        public List<Double> AngleDifferences { get; private set; }
 
         public FoldingSimulation(Mesh mesh, double degree, List<Curve> folds)
         {
             Simulate(mesh, degree, folds);
         }
-
 
         void Simulate(Mesh mesh, double degree, List<Curve> folds)
         {
@@ -36,7 +33,7 @@ namespace CurvedCreaseFolding
 
             Edges();
             Hinges();
-            AngleAnalysis();
+            //AngleAnalysis();
             //Anchors();
             Simulation();
 
@@ -64,6 +61,7 @@ namespace CurvedCreaseFolding
                     double dist = 0.0;
                     var midPoint = (float)0.5 * points[edgeVertices.I] + (float)0.5 * points[edgeVertices.J];
                     foreach (Curve c in folds) c.ClosestPoint(midPoint, out dist, 0.2 * minDist);
+                    // check tangency to curve as well!
 
                     if (dist == 0.0) continue;
                     foldings.Add(mesh.TopologyEdges.EdgeLine(i));
@@ -84,43 +82,33 @@ namespace CurvedCreaseFolding
             void AngleAnalysis()
             {
                 var angleDifferences = new List<Double>();
-                var normals = mesh.Normals;
                 for (int i = 0; i < points.Length; i++)
                 {
-                    var adjacencies = mesh.TopologyVertices.ConnectedEdges(i);
-                    var vectors = new RhinoList<Vector3f>(); //RhinoList so it's sortable by degs
-                    var plane = new Plane(points[i], normals[i]); //is it gonna be the same vertice (due to topology vs normal vertices)
-                    var degs = new Double[adjacencies.Length]; //degrees on vertice plane, need to calculate planes seperately for mesh degrees
-                    //int[] edgeVertices = new int[adjacencies.Length];
-                    var edgeVertices = new RhinoList<int>();
+                    var adjacencies = mesh.TopologyVertices.ConnectedTopologyVertices(i, true);
+                    var xx = mesh.TopologyVertices.ConnectedTopologyVertices(i, false);
+                    int index = mesh.TopologyVertices.MeshVertexIndices(i).First();
+                    Vector3d normal = mesh.Normals[index];
+                    var plane = new Plane(points[i], normal);
+
+                    var vectors = new Vector3d[adjacencies.Length];
+                    var angles = new Double[adjacencies.Length];
                     for (int j = 0; j < adjacencies.Length; j++)
                     {
-                        var tempVertices = mesh.TopologyEdges.GetTopologyVertices(adjacencies[j]);
-                        if (tempVertices.I != i) edgeVertices[j] = tempVertices.I;
-                        else edgeVertices[j] = tempVertices.J;
-                        //int edgeVertice;
-                        //if (tempVertices.I != i) edgeVertice = tempVertices.I;
-                        //else edgeVertice = tempVertices.J;
-                        //vectors[j] = points[edgeVertice] - points[i];
-                        vectors[j] = points[edgeVertices[j]] - points[i];
-                        degs[j] = Vector3d.VectorAngle(plane.XAxis, vectors[j], plane);
+                        vectors[j] = new Vector3d(points[adjacencies[j]] - points[i]);
+                        if (j < adjacencies.Length - 1) angles[j] = Vector3d.VectorAngle(vectors[j], vectors[j + 1]);
+                        else angles[j] = Vector3d.VectorAngle(vectors[j], vectors[0]);
                     }
-                    vectors.Sort(degs);
-                    edgeVertices.Sort(degs);
-                    Vector3f[] sortedVectors = vectors.ToArray();
-                    double[] degrees = new double[sortedVectors.Length];
-                    for (int j = 0; j < sortedVectors.Length; j++)
-                        degrees[j] = Vector3d.VectorAngle(sortedVectors[j], sortedVectors[(j + 1) % sortedVectors.Length]);
-                    //double sumDegrees;
-                    double diffAngle = (Math.PI * 2 - degrees.Sum()) / adjacencies.Length;
+
                     for (int j = 0; j < adjacencies.Length; j++)
                     {
-                        var angle = new Angle(1000.0, degrees[j] + diffAngle, i, edgeVertices[j], i, edgeVertices[(j + 1) % sortedVectors.Length]);
+                        var finalAngle = angles[j] * Math.PI * 2 / angles.Sum();
+                        Angle angle;
+                        if (j < adjacencies.Length - 1) angle = new Angle(1.0, finalAngle, i, adjacencies[j], i, adjacencies[j + 1]);
+                        else angle = new Angle(1.0, finalAngle, i, adjacencies[j], i, adjacencies[0]);
                         goals.Add(angle);
                     }
-                    angleDifferences.Add(diffAngle);
+                    // add mesh colors after mesh shows up! :))
                 }
-                AngleDifferences = angleDifferences;
             }
 
             void Anchors()
@@ -139,9 +127,6 @@ namespace CurvedCreaseFolding
 
             void Simulation()
             {
-                //var watch = new Stopwatch();
-                //watch.Start();
-
                 int counter = 0;
                 double threshold = 1e-9;
                 do
@@ -149,10 +134,6 @@ namespace CurvedCreaseFolding
                     simulation.Step(goals, true, threshold);
                     counter++;
                 } while (simulation.GetvSum() > threshold && counter < 200);
-
-                //watch.Stop();
-                //Console.WriteLine(watch.ElapsedMilliseconds);
-                //watch.Restart();
 
                 var outMesh = new Mesh();
                 outMesh.Faces.AddFaces(mesh.Faces);

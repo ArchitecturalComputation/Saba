@@ -30,7 +30,6 @@ namespace CurvedCreaseFolding
         {
             pManager.AddMeshParameter("Mesh", "M", "Final mesh that is flattenable", GH_ParamAccess.item);
             pManager.AddLineParameter("Edge Lines", "E", "Edges being folded", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Angle Differences", "AD", "Differences in angle in each vetex", GH_ParamAccess.item);
             //pManager.HideParameter(0);
         }
 
@@ -54,9 +53,6 @@ namespace CurvedCreaseFolding
 
             List<Line> foldings = simulation.Foldings;
             DA.SetDataList(1, foldings);
-
-            List<Double> angleDifferences = simulation.AngleDifferences;
-            DA.SetDataList(2, angleDifferences);
         }
     }
 }

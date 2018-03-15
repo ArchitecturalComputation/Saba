@@ -36,6 +36,9 @@
     <Reference Include="KangarooSolver">
       <HintPath>..\..\..\..\..\AppData\Roaming\Grasshopper\Libraries\KangarooSolver.dll</HintPath>
     </Reference>
+    <Reference Include="SpatialSlur">
+      <HintPath>..\SpatialSlur.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />

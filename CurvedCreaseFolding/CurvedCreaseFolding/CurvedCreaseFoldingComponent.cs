@@ -1,13 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-
 using Grasshopper.Kernel;
 using Rhino.Geometry;
-
-// In order to load the result of this wizard, you will also need to
-// add the output bin/ folder of this project to the list of loaded
-// folder in Grasshopper.
-// You can use the _GrasshopperDeveloperSettings Rhino command for that.
+using SpatialSlur.SlurCore;
+using SpatialSlur.SlurMesh;
 
 namespace CurvedCreaseFolding
 {
@@ -21,38 +17,35 @@ namespace CurvedCreaseFolding
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddMeshParameter("Mesh", "M", "Initial mesh to create", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Degree", "D", "Degree of folding", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Angle", "A", "Angle of folding in Radians", GH_ParamAccess.item);
             pManager.AddCurveParameter("Fold Curves", "FC", "Lines to be folded", GH_ParamAccess.list);
-            //pManager[0].Optional = true; to change parameter properties
+            pManager[1].Optional = true;
+            pManager[2].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddMeshParameter("Mesh", "M", "Final mesh that is flattenable", GH_ParamAccess.item);
-            pManager.AddLineParameter("Edge Lines", "E", "Edges being folded", GH_ParamAccess.item);
-            //pManager.HideParameter(0);
+            pManager.AddMeshParameter("Mesh3D", "M3D", "Final 3D mesh that is flattenable", GH_ParamAccess.item);
+            pManager.AddMeshParameter("Mesh2D", "M2D", "Final mesh flattened", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             Mesh mesh = null;
-            double degree = 0;
+            double angle = 0;
             var folds = new List<Curve>();
 
             DA.GetData(0, ref mesh);
-            DA.GetData(1, ref degree);
-            //DA.GetDataList(2, folds);
-            //if (!DA.GetData(0, ref mesh)) return;
-            //if (!DA.GetData(1, ref force)) return;
-            if (!DA.GetDataList(2, folds)) return;
+            DA.GetData(1, ref angle);
+            DA.GetDataList(2, folds);
 
-            var simulation = new FoldingSimulation(mesh, degree, folds);
+            var simulation = new FoldingSimulation(mesh, angle, folds);
 
             Mesh outMesh = simulation.OutMesh;
             DA.SetData(0, outMesh);
 
-            List<Line> foldings = simulation.Foldings;
-            DA.SetDataList(1, foldings);
+            Mesh outMeshFlat = simulation.OutMeshFlat;
+            DA.SetData(1, outMeshFlat);
         }
     }
 }

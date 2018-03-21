@@ -63,6 +63,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="VertexHinge.cs" />
     <Compile Include="CurvedCreaseFoldingComponent.cs" />
     <Compile Include="CurvedCreaseFoldingInfo.cs" />
     <Compile Include="FoldingSimulation.cs" />

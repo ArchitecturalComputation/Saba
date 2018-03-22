@@ -216,18 +216,16 @@ namespace CurvedCreaseFolding
 
         void AddHingeVertexGoals(List<IGoal> _goals)
         {
-            var tempGoals = new List<IGoal>();
+            var hingeVertexGoals = new List<IGoal>();
             var naked = mesh.GetNakedEdgePointStatus();
             for (int i = 0; i < mesh.TopologyVertices.Count; i++)
             {
                 if (naked[i]) continue;
                 var neighbors = mesh.TopologyVertices.ConnectedTopologyVertices(i, true).ToList();
-                neighbors.Add(i);
-
-                var vertexHinge = new HingeVertex(neighbors, 0.2);
-                tempGoals.Add(vertexHinge);
+                var vertexHinge = new HingeVertex(i, neighbors, 0.5);
+                hingeVertexGoals.Add(vertexHinge);
             }
-            _goals.AddRange(tempGoals);
+            _goals.AddRange(hingeVertexGoals);
         }
 
         void AddHingeFlattenGoals(List<IGoal> _goals)
@@ -401,27 +399,27 @@ namespace CurvedCreaseFolding
             var polylines = Curve.JoinCurves(foldings);
             foreach (Curve c in polylines)
             {
-                //var discontinuities = new List<Double>();
-                //for (int i = 0; i <= c.Domain.Length; i++)
-                //    discontinuities.Add(i);
-
-                c.Domain = new Interval(0, 1);
                 var discontinuities = new List<Double>();
-                discontinuities.Add(0);
-                Boolean check = true;
-                //double m = 0; // to create midpoints between discontinuities to create a more accurate curve
-                while (check)
-                {
-                    check = c.GetNextDiscontinuity((Continuity)4, discontinuities.Last(), 1, out double d);
-                    //if (m != 0 && check) discontinuities.Add((m + d) / 2);
-                    //m = d;
-                    if (check) discontinuities.Add(d);
-                }
-                discontinuities.Add(1);
-
-                IEnumerable<Point3d> dPoints = discontinuities.Select(d => c.PointAt(d));
+                for (int i = 0; i <= c.Domain.Length; i++)
+                    discontinuities.Add(i);
+                List<Point3d> dPoints = discontinuities.Select(d => c.PointAt(d)).ToList();
                 var curve = Curve.CreateControlPointCurve(dPoints, 3);
-                //var curve = Curve.CreateInterpolatedCurve(dPoints, 3, (CurveKnotStyle) 4);
+
+                //actually getting the discontinuities had varying spacing and sometimes produced inconsistent curves
+                //c.Domain = new Interval(0, 1);
+                //var discontinuities = new List<Double>();
+                //discontinuities.Add(0);
+                //Boolean check = true;
+                //double prev_d = 0; // to create midpoints between discontinuities to create a more accurate curve
+                //while (check)
+                //{
+                //    check = c.GetNextDiscontinuity((Continuity)4, discontinuities.Last(), 1, out double d);
+                //    if (check) discontinuities.AddRange(new List<double> { (prev_d + d) / 2, d });
+                //    prev_d = d;
+                //}
+                //discontinuities.Add(1);
+                //var curve = Curve.CreateInterpolatedCurve(dPoints, 3, (CurveKnotStyle)4);
+
                 foldCurves.Add(curve);
             }
             FoldCurves = foldCurves;
@@ -430,28 +428,44 @@ namespace CurvedCreaseFolding
         void SetBoundaryCurves()
         {
             var boundaryCurves = new List<Curve>();
-            var e = OutMesh.GetNakedEdges();
+            var e = OutMeshFlat.GetNakedEdges();
             var outerEdges = new List<Curve>();
             for (int i = 0; i < e.Length; i++)
                 outerEdges.Add(e[i].ToNurbsCurve());
 
             var outline = Curve.JoinCurves(outerEdges);
-            PolylineCurve.JoinCurves(outerEdges);
-            for (int i = 0; i < OutMesh.TopologyEdges.Count; i++)
-            {
-                //for (int i = 0; i < mesh.TopologyVertices.Count; i++)
-                //{
-                //    var index = mesh.TopologyVertices.MeshVertexIndices(i).First();
-                //    if (naked[index]) continue;
+            var breaks = new List<int>();
 
-                //    var developableGoals = DevelopableGoals(i);
-                //    _goals.AddRange(developableGoals);
-                //}
+            var naked = OutMeshFlat.GetNakedEdgePointStatus();
+            for (int i = 0; i < OutMeshFlat.TopologyVertices.Count; i++)
+            {
+                if (!naked[i]) continue;
+                var neighbors = OutMeshFlat.TopologyVertices.ConnectedTopologyVertices(i, true);
+                var vectors = neighbors.Select(n => OutMeshFlat.TopologyVertices[n] - OutMeshFlat.TopologyVertices[i])
+                .Select(vf => new Vector3d(vf.X, vf.Y, vf.Z)).ToList();
+                var angles = new double[neighbors.Length];
+
+                for (int j = 0; j < neighbors.Length - 1; j++)
+                    angles[j] = Vector3d.VectorAngle(vectors[j], vectors[j + 1]);
+                if (angles.Sum() < PI * 0.75) breaks.Add(i);
             }
 
-            IEnumerable<Curve> foldings = foldedEdges.Select(i => OutMeshFlat.TopologyEdges.EdgeLine(i).ToNurbsCurve());
-            var polylines = Curve.JoinCurves(foldings);
-            foreach (Curve c in polylines)
+            var foldIndexPairs = foldedEdges.Select(edge => OutMeshFlat.TopologyEdges.GetTopologyVertices(edge));
+            var tempVertices = foldIndexPairs.Select(fip => fip.I).ToList();
+            tempVertices.AddRange(foldIndexPairs.Select(fip => fip.J));
+            foreach (int v in tempVertices) if (naked[v]) breaks.Add(v);
+
+            var breakPoints = breaks.Distinct().Select(b => OutMeshFlat.TopologyVertices.ElementAt(b));
+            var breakParams = new List<double>();
+            foreach (Point3f b in breakPoints)
+            {
+                outline[0].ClosestPoint(b, out double t);
+                breakParams.Add(t);
+            }
+
+            var segments = outline[0].Split(breakParams);
+
+            foreach (Curve c in segments)
             {
                 c.Domain = new Interval(0, 1);
                 var discontinuities = new List<Double>();
@@ -463,9 +477,8 @@ namespace CurvedCreaseFolding
                     if (check) discontinuities.Add(d);
                 }
                 discontinuities.Add(1);
-
-                IEnumerable<Point3d> dPoints = discontinuities.Select(d => c.PointAt(d));
-                var curve = Curve.CreateInterpolatedCurve(dPoints, 3);
+                List<Point3d> dPoints = discontinuities.Select(d => c.PointAt(d)).ToList();
+                var curve = Curve.CreateInterpolatedCurve(dPoints, 3, (CurveKnotStyle)4);
                 boundaryCurves.Add(curve);
             }
             BoundaryCurves = boundaryCurves;
